@@ -1,4 +1,5 @@
 unsigned long currentTime;
+unsigned long prevTime = 2000;
 int count = 0;
 
 const int motorRightDirection = 4;
@@ -16,13 +17,16 @@ void setup(){
   //set motor directons
   digitalWrite(motorRightDirection, HIGH);
   digitalWrite(motorLeftDirection, HIGH);
+  
+  Serial.begin(9600);
 }
 
 void loop(){
   
   currentTime = millis(); //take the current time for the next calculation
   
-  if(millis() - currentTime > 2000){ //every two seconds will change direction (which the following code controls)
+  if(currentTime - prevTime > 2000){ //every two seconds will change direction (which the following code controls)
+    prevTime = currentTime;
     
     analogWrite(motorRightPWM, 0); //turn the motors off to make sure there isn't any cross currents from the board (could damage the electronics)
     analogWrite(motorLeftPWM, 0);
