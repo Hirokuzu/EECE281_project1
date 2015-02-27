@@ -5,7 +5,7 @@
   The state machine uses a bit to determine which state it's in:
   
   0 - No lights are on (except maybe headlights, assumed for general driving)
-  1 - Braking, the car is slowing down
+  1 - Braking, the car is slowing down or stopped (while resting the car should be in this state)
   2 - Left turn, puts on the left blinker and blinks
   3 - Right turn, puts on the right blinker and blinks
   4 - Moving backwards, turns on the brake light to simulate any backwards facing lights for reversing
@@ -13,6 +13,11 @@
   
   Headlights are controlled based on the light levels the car is in, will turn on day time running lights
   when the light levels get a little lower, and turn on 100% when it's in a low light environment
+  
+  Uses headlightOverride as a variable where
+  0 - automatic headlights
+  1 - Override ON
+  2 - Override OFF
   
 */
 
@@ -35,7 +40,8 @@ const int OFF = LOW;
 unsigned long currentTime;
 int count = 0;
 
-//Photocell control
+//Headlight control
+int headlightOverride;
 const int photocell = 1;
 const int lowLight = 700;
 const int medLight = 900;
@@ -53,16 +59,23 @@ void setup(){
 
 void loop(){
   stateMachine = 0;
+  headlightOverride = 0;
   
   //Headlight Functionality
-  photocellValue = analogRead(photocell); //reads the light level
-  if(photocellValue > medLight){
-    analogWrite(headLights, OFF);
-  } else if (photocellValue > lowLight){
-    analogWrite(headLights, dayTimeRunningLights);
-  } else {
+  if(headlightOverride == 0){
+      photocellValue = analogRead(photocell); //reads the light level
+    if(photocellValue > medLight){
+      analogWrite(headLights, OFF);
+    } else if (photocellValue > lowLight){
+      analogWrite(headLights, dayTimeRunningLights);
+    } else {
+      analogWrite(headLights, ON);
+    }
+  } else if(headlightOverride == 1){ //over ride and on
     analogWrite(headLights, ON);
-  }
+  } else { //over ride and off
+    analogWrite(headLights, OFF);
+  } 
   
   //Stop Light Functionality
   if(stateMachine == movBreaking || stateMachine == movBack){
