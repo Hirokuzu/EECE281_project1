@@ -44,7 +44,7 @@ void loop() {
   
   currentTime = millis(); //take the current time for the next calculation
   
-  if(currentTime - prevTime > 2000){ //every two seconds will change direction (which the following code controls)
+  if(currentTime - prevTime > 2000) { //every two seconds will change direction (which the following code controls)
     prevTime = currentTime;
   
       //read temperature from IC sensor(in Celsius);
@@ -62,21 +62,17 @@ void loop() {
        
        //10us pulse to trigger
        digitalWrite(trig, LOW);
-       delay(2); //TODO: CHANGE TO 10us DELAY
+       delayMicroseconds(10);
        digitalWrite(trig, HIGH);
-       delay(2); //TODO: CHANGE TO 10us DELAY
+       delayMicroseconds(10);
        digitalWrite(trig, LOW);
        
        //waits for echo to go HIGH, starts timer, stops timer when echo goes LOW
        echotime = pulseIn(echo, HIGH); 
        
        //calculate distance in cm
-       if (echo > 38000) { //if the distance is too far, just set distance to 0.
-         distance = 0;
-       }
-       else {
-         distance = echotime/speedSound/2;
-         }
+       distance = echotime/speedSound/2;
+
        Serial.print("Distance: ");
        Serial.println(distance);
        
@@ -122,11 +118,11 @@ void stop_robot() {
 void turnleft() {
   digitalWrite(motorRightDirection, HIGH);
   digitalWrite(motorLeftDirection, LOW);
-  analogWrite(motorRightPWM, 255); //start turning again
-  analogWrite(motorLeftPWM, 255);
+  analogWrite(motorRightPWM, 200); //start turning again
+  analogWrite(motorLeftPWM, 200);
   delay(turntimeninety);
   stop_robot();
-  delay(100);  
+  delay(100);
 }
 
 //void turnright() {
