@@ -1,136 +1,156 @@
+// GLOBAL VARIABLES
 unsigned long prevTime = 2000;
 unsigned long currentTime;
+int count = 0;
+float dist_ahead;
 
-//CONSTANT
-const int trig = 2;
-const int echo = 3;
-const int temp = 0; //Analog pin
-const int slowdist = 20; //distance to start slowing down
-const int stopdist = 1; //distance to stop
+// PIN ASSIGNMENTS AND OTHER CONSTANTS
 const int motorRightDirection = 4;
 const int motorRightPWM = 5;
 const int motorLeftPWM = 6;
 const int motorLeftDirection = 7;
-const int looptime = 100; //microseconds it takes to sense new distance and change motor rate
-const int turntimeninety = 2000; //time it takes to turn 90 degrees at max speed
-const int turntimefortyfive = 1000; //time it takes to turn 45 degrees at max speed
+const int trig = 2;
+const int echo = 3;
+const int temp = 0; //Analog pin
 
-//VARIABLES
-float echotime; //time of pulse in microseconds
-float temperature; //temperature from IC sensor in degree Celsius
-float speedSound; //calculated speed of sound using temperature from IC sensor
-float distance; //distance in cm
+const int FULL_SPEED = 255;
+const int MIN_SPEED = 170;
+const int STOP_SPEED = 0;
 
-void setup() {
-  
-  //set up sensor modes
+const int SLOW_DIST = 40; //distance to start slowing down is 40 cm
+const int STOP_DIST = 6; //distance to stop is 6 cm FOR NOW, (improve later)
+
+const int TURN_90_TIME = 1000;
+const int LOOP_DELAY = 1000;
+
+void setup(){
+  //set sensor modes
   pinMode(trig, OUTPUT);
   pinMode(echo,INPUT);
+
   analogReference(INTERNAL); //change aRef to ~1.1V
-  
+
   //set up pin modes
   pinMode(motorRightDirection, OUTPUT);
   pinMode(motorRightPWM, OUTPUT);
   pinMode(motorLeftPWM, OUTPUT);
   pinMode(motorLeftDirection, OUTPUT);
-  
-  //set motor directons
-  forward();
-  
+
+  setMotorsForward(); // initialize to forward, but dont drive anywhere yet
+  setMotorSpeed(STOP_SPEED);
+
   Serial.begin(9600);
 }
 
-void loop() {
-  
-  currentTime = millis(); //take the current time for the next calculation
-  
-  if(currentTime - prevTime > 2000) { //every two seconds will change direction (which the following code controls)
+void loop(){ 
+//BASIC MOTOR TEST
+/* setMotorsForward();
+  setMotorSpeed(FULL_SPEED);
+  delay(1000);
+  setMotorSpeed(STOP_SPEED);
+  delay(1000);
+  turnRight();
+  delay(1000);
+  turnLeft();
+  delay(1000);
+  */
+         
+  currentTime = millis();    //take the current time for the next calculation
+  if(currentTime - prevTime > LOOP_DELAY){   //process new instruction every ONE SECOND
     prevTime = currentTime;
-  
-      //read temperature from IC sensor(in Celsius);
-       temperature = analogRead(temp)/9.31;
-       Serial.print("Temp: ");
-       Serial.println(temperature);
-       
-       //calculate speed of sound with temperature in m/s
-       speedSound = 331.5 + (0.6 * temperature);
-       
-       //convert speed of sound to us/cm
-       speedSound = 10000/speedSound;
-       Serial.print("Speed of sound: ");
-       Serial.println(speedSound); 
-       
-       //10us pulse to trigger
-       digitalWrite(trig, LOW);
-       delayMicroseconds(10);
-       digitalWrite(trig, HIGH);
-       delayMicroseconds(10);
-       digitalWrite(trig, LOW);
-       
-       //waits for echo to go HIGH, starts timer, stops timer when echo goes LOW
-       echotime = pulseIn(echo, HIGH); 
-       
-       //calculate distance in cm
-       distance = echotime/speedSound/2;
-
-       Serial.print("Distance: ");
-       Serial.println(distance);
-       
-       if (distance <= stopdist) {
-         stop_robot();
-         turnleft(); //turn left 90 degrees;
-       }
-       else if (distance <= slowdist) {
-         int slowrate = ((distance-stopdist)/(slowdist-stopdist)) * 255;
-         analogWrite(motorRightPWM, slowrate); //move at the defined slowrate
-         analogWrite(motorLeftPWM, slowrate);  
-       }
-       else {
-         analogWrite(motorRightPWM, 255); //move at the normal max speed
-         analogWrite(motorLeftPWM, 255);
-       }     
+    dist_ahead = getDistance();   // Read Ultrasonic sensor and calculate distance
+    
+    if(dist_ahead <= STOP_DIST) {  // At STOP_DIST,(6cm), and turn left
+      turnLeft();
+    } else if(dist_ahead <= SLOW_DIST) { // Slow down to MIN_SPEED
+      slowDown(dist_ahead);
+    } else {                   // Otherwise keep driving full speed
+      setMotorSpeed(FULL_SPEED);
+    }
+    
+    // Print distance reading  to the serial monitor    TODO: print to LCD
+    Serial.print(" |Distance: ");
+    Serial.print(dist_ahead);
+    Serial.println(" cm|");
   }
 }
 
-//set tires to go forwards
-void forward() {
+void setMotorsForward() {   //Configure motor settings, doesnt actually drive
   digitalWrite(motorRightDirection, HIGH);
   digitalWrite(motorLeftDirection, HIGH);
-  delay(100);
+  delay(10); //delay to make sure the correct direction is going to proces
 }
 
-//set tires to go backwards
-void backward() {
-  digitalWrite(motorRightDirection, LOW);
-  digitalWrite(motorLeftDirection, LOW);
-  delay(100);
+// CURRENTLY WE ARE NOT USING THIS MEHOD
+//void setMotorsBackward() {
+//  digitalWrite(motorLeftDirection, LOW);
+//  digitalWrite(motorRightDirection, LOW);
+//  delay(100); //delay to make sure the correct direction is going to process
+//}
+
+void setMotorSpeed( int pwm_speed){
+  analogWrite(motorLeftPWM, pwm_speed);
+  analogWrite(motorRightPWM, pwm_speed); //start turning again  
+  Serial.print(" |Motor Speed: ");      // print motor speed every time we set it 
+  Serial.print(pwm_speed);
+  Serial.print("|");
+  delay(10);
 }
 
-//stop the robot
-void stop_robot() {
-  analogWrite(motorRightPWM, 0); 
-  analogWrite(motorLeftPWM, 0);
-  delay(100);   
-}
-
-//change left wheel directions to go backwards, move left wheels until robot
-//has turned to the left
-void turnleft() {
+void turnLeft() {
+  setMotorSpeed(STOP_SPEED);
   digitalWrite(motorRightDirection, HIGH);
   digitalWrite(motorLeftDirection, LOW);
-  analogWrite(motorRightPWM, 200); //start turning again
-  analogWrite(motorLeftPWM, 200);
-  delay(turntimeninety);
-  stop_robot();
-  delay(100);
+  setMotorSpeed(FULL_SPEED);
+  delay(TURN_90_TIME);
+  setMotorSpeed(STOP_SPEED);
 }
 
-//void turnright() {
-//  //left wheel goes forward
-//  //right wheel directions goes backward
-//  //
-//  //has turned to the right
+// CURRENTLY WE ARE NOT USING THIS MEHOD
+//void turnRight() {
+//  digitalWrite(motorRightDirection, LOW);
+//  digitalWrite(motorLeftDirection, HIGH);
+//  setMotorSpeed(FULL_SPEED);
+//  delay(TURN_90_TIME);
+//  setMotorSpeed(STOP_SPEED);
 //}
 
 
+void slowDown(float dist) {
+  float slowrate_f = ((dist-STOP_DIST)/(SLOW_DIST-STOP_DIST)) * 255;
+  int slowrate_i = (int)slowrate_f;  
   
+  if(slowrate_i < MIN_SPEED)  //THE END OF THE BEEPING
+    slowrate_i = MIN_SPEED;
+ 
+  setMotorSpeed(slowrate_i);
+}
+
+
+float getDistance() {
+  float echotime; //time of pulse in microseconds
+  float temperature; //temperature from IC sensor in degree Celsius
+  float speedSound; //calculated speed of sound using temperature from IC sensor
+  float distance; //distance in cm
+  
+  temperature = analogRead(temp)/9.31;       //read temperature from IC sensor(in Celsius);
+  speedSound = 331.5 + (0.6 * temperature);  //calculate speed of sound with temperature in m/s
+  speedSound = 10000/speedSound;             //convert speed of sound to us/cm
+   
+  digitalWrite(trig, LOW);      //10us pulse to trigger
+  delayMicroseconds(10);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+   
+  echotime = pulseIn(echo, HIGH); //waits for echo to go HIGH, starts timer, stops timer when echo goes LOW
+   
+  //calculate distance in cm
+  if (echo > 38000) { //if the distance is too far, just set distance to 0.
+    distance = 0;
+  } else {
+    distance = echotime/speedSound/2;
+  }
+  
+  return distance;
+}
