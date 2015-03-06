@@ -39,7 +39,7 @@ void receiveEvent(int howMany){
   
   lcd.setCursor(0, 1); //change to the second row
   
-  for(int i = 0; i < NUMBER_BYTES; i++){
+  for(int i = 0; i < NUMBER_BYTES; i++){  
      INCOMING_STRING[i] = Wire.read();
   }
   
