@@ -23,11 +23,11 @@
 */
 
 #include <Wire.h>
+#include <SoftwareSerial.h>
 
 void setup(){
-  
   Wire.begin();
-  
+  Serial.begin(9600);
 }
 
 void loop(){
@@ -54,4 +54,32 @@ void loop(){
   Wire.beginTransmission(1);
   Wire.write("a"); // waiting and no other text
   Wire.endTransmission();
+  
+  delay(1000);
+  
+  Wire.beginTransmission(1);
+  char* toPrint = parseTransmission( 's', "100");
+  String test = toPrint;
+  Serial.print(toPrint);
+  Wire.write(toPrint);
+  Wire.endTransmission();
+}
+
+/*
+  Use this function to parse the mode and a message together
+*/
+char* parseTransmission(char mode, String message){
+  int i;
+  char currentChar = 'a';
+  for( i = 0; currentChar != '\0' ; i++){
+    currentChar = message[i];
+  }//i is now the size of string
+  char parsed [i+1];
+  parsed[i] = '\0';
+  parsed[0] = mode;
+  for(int j = 1; j < i ; j++){
+    parsed[j] = message[j-1];
+  }
+  char* result = parsed;
+  return result;
 }
