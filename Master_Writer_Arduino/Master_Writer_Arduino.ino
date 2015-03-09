@@ -83,3 +83,23 @@ char* parseTransmission(char mode, String message){
   char* result = parsed;
   return result;
 }
+
+char* parseInt(char mode, int value){
+ int i = 0;
+ int tester = value;
+ while (tester != 0){ //gives number of digits
+   ++i;
+   tester = tester/10;
+ }
+ char resultString[i+2];
+ resultString[i+1] = '\0'; //null in last slot
+ resultString[0] = mode; //mode in the first
+ tester = value;
+ 
+ for(int j = 1; j < i;j++){ //numbers in the rest
+   resultString[i-j] = tester % 10;
+   tester = tester/10;
+ }
+ char* result = resultString;
+ return result;
+}
