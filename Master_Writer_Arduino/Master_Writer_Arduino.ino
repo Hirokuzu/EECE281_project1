@@ -32,9 +32,26 @@ void setup(){
 
 void loop(){
   
+  delay(1000);
   Wire.beginTransmission(1);
-  Wire.write("INSERT EXAMPLE STRING HERE");
-  Wire.write(x); //can also send variables
+  Wire.write("d120"); //distance 120
   Wire.endTransmission();
   
+  delay(1000);
+  
+  Wire.beginTransmission(1);
+  Wire.write("w1"); //writing 1
+  Wire.endTransmission();
+  
+  delay(1000);
+  
+  Wire.beginTransmission(1);
+  Wire.write("sMax"); //speed Max
+  Wire.endTransmission();
+  
+  delay(1000);
+  
+  Wire.beginTransmission(1);
+  Wire.write("a"); // waiting and no other text
+  Wire.endTransmission();
 }
