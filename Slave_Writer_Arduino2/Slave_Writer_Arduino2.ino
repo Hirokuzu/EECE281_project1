@@ -37,7 +37,7 @@ void receiveEvent(int howMany){
   
   char PRINT_STRING[i];
   
-  for(int j = 0; j < (NUMBER_BYTES - 1); j++){
+  for(int j = 0; j < (i-1); j++){
     PRINT_STRING[j] = INCOMING_STRING[j+1];
   }
   PRINT_STRING[i-1] = '\0';
