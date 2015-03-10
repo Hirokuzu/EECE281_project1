@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <LiquidCrystal.h>
-#include <SoftwareSerial.h>
 
 LiquidCrystal lcd(7, 2, 3, 4, 5, 6); //sets up the liquid crystal desplay using 4 pin implementation (better than 8 pin)
 
@@ -11,12 +10,10 @@ void setup(){
   
   lcd.begin(16, 2); // sets the lcd to use 2 row, 16 char spaces
   lcd.print("Initalized"); //prints to the lcd that it's started, used to make sure the set up works properly
-  Serial.begin(9600); //used for debugging as serial is left open while using the wire functionality (makes debugging lots easier than if we couldn't use serial)
   
 }
 
 void loop(){
-  delay(50); //small delay to updating probably not necessary but doesn't harm anything
 }
 
 void receiveEvent(int howMany){ //runs every time the slave arduino is given something by wire.transmit from the master

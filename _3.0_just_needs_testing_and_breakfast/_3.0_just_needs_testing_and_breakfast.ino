@@ -26,6 +26,7 @@ const int COMS_B = 5;
 const int TEMP = 0;
 
 char IS_BASIC = 1; //1 is true, 0 is false
+unsigned char countLoop = 0;
 
 /* DISTANCE(ULTRASONIC) VARIABLES */
 float dist_ahead;
@@ -38,7 +39,7 @@ const int MIN_SPEED = 85;
 const int STOP_SPEED = 0;
 const int SLOW_DIST = 10; //distance to start slowing` down is 10 cm
 const int STOP_DIST = 5; //distance to stop is 6 cm FOR NOW, (improve later)
-const int TURN_90_TIME = 210;//-------------------------------------------------------------------------------------------------------------------------delay here, change based on the battery levels (will need to be fine tuned before demo
+const int TURN_90_TIME = 210;//-------------------------------------------------------------------------------------------------------------------------delay here, change based on the battery levels (will need to be fine tuned before demo, was 220 earlier yesterday
 const int TURN_SPEED = 145;
 
 /* IR SENSOR VARIABLES & CONSTANTS */ 
@@ -139,6 +140,11 @@ void loop(){
       processInstruction(key_pressed); //decide what to do based on the key that was pressed
     }
     ir_recv.resume();
+    if( countLoop > 100 ){ //will update every hundred loops 
+      countLoop = 0;
+      transmitDistance(getDistance());
+    }
+    ++countLoop;
   }   
 }
 
