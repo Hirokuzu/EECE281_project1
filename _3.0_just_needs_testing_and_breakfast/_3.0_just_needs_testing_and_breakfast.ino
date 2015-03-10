@@ -1,5 +1,4 @@
 /*
-  Transmission delay is 51ms because the loop delay on slave is 50ms, so no matter what the transmission will be picked up by the slave(could definitely change this)
   TURN_90_TIME needs to be updated when it gets new batteries
   need to test IR functionality (that the ok key does stuff and doesnt screw up the basic functionality
   be careful of using serial becaues the IR stuff interfaces wiht it in a way that i dont quite understand, so once you're done using it remove it fully from the code
@@ -35,9 +34,9 @@ uint16_t key_pressed;
 /* MOTOR VARIABLES & CONSTANTS */
 const int MAX_SPEED = 255;
 const int SLOW_SPEED = 90;
-const int MIN_SPEED = 80;
+const int MIN_SPEED = 85;
 const int STOP_SPEED = 0;
-const int SLOW_DIST = 15; //distance to start slowing` down is 10 cm
+const int SLOW_DIST = 10; //distance to start slowing` down is 10 cm
 const int STOP_DIST = 5; //distance to stop is 6 cm FOR NOW, (improve later)
 const int TURN_90_TIME = 210;//-------------------------------------------------------------------------------------------------------------------------delay here, change based on the battery levels (will need to be fine tuned before demo
 const int TURN_SPEED = 145;
@@ -74,7 +73,7 @@ const uint16_t KEY_TV = 0xD827;
 const int SEGMENT_TIME= 1000;
 
 void setup(){
-  analogReference(INTERNAL); //change aRef to ~1.1V
+  analogReference(INTERNAL); //change aRef to ~1.1V - was used for photo cell implementation
   Serial.begin(9600);
   ir_recv.enableIRIn(); 
   Wire.begin();
@@ -223,9 +222,9 @@ void turnRight() {
 void operate_in_basic_mode() {
     float dist_read = getDistance();
     // Now, process the distance appropriately:
-    if(dist_read > SLOW_DIST) {  // At STOP_DIST,(6cm), and turn left
+    if(dist_read > SLOW_DIST) {  // full speed until at slow down distance (10cm)
       setMotorSpeed(MAX_SPEED);
-    } else if(dist_read > STOP_DIST) { // Slow down to MIN_SPEED
+    } else if(dist_read > STOP_DIST) { // Slow down to stop distance (5cm)
         slowDown(dist_read);
     } else {
         turnLeft();
@@ -243,7 +242,7 @@ void slowDown(float dist) {
   slowrate_i = (int)slowrate_f;  
   
   if(slowrate_i < MIN_SPEED)  //THE END OF THE BEEPING
-    slowrate_i = MIN_SPEED+1;
+    slowrate_i = MIN_SPEED;
 
   setMotorSpeed(slowrate_i);
 }
@@ -312,9 +311,9 @@ const char* parseNum(char mode, int value){
 */
 void transmitWait(){
   Wire.beginTransmission(1);
-  delay(51);
+  delay(10);
   Wire.write('a'); //writing being controlled
-  delay(51);
+  delay(10);
   Wire.endTransmission();
 
 }
@@ -324,9 +323,9 @@ void transmitWait(){
 */
 void transmitRC(){
   Wire.beginTransmission(1);
-  delay(51);
+  delay(10);
   Wire.write('r'); //writing being controlled
-  delay(51);
+  delay(10);
   Wire.endTransmission();
 }
 
@@ -339,9 +338,9 @@ void transmitDistance(int distance){
   String transString;
   strcpy(ptrString, constDisString);
   Wire.beginTransmission(1);
-  delay(51);
+  delay(10);
   Wire.write(ptrString); //writing Speed then value
-  delay(51);
+  delay(10);
   Wire.endTransmission();
 }
 
@@ -354,9 +353,9 @@ void transmitSpeed(int speedy){
   String transString;
   strcpy(ptrString, constPtrString);
   Wire.beginTransmission(1);
-  delay(51);
+  delay(10);
   Wire.write(ptrString); //writing Speed then value
-  delay(51);
+  delay(10);
   Wire.endTransmission();
 }
 
@@ -369,9 +368,9 @@ void transmitDraw(int number){
   String transString;
   strcpy(ptrString, constStringPoint);
   Wire.beginTransmission(1);
-  delay(51);
+  delay(10);
   Wire.write(ptrString); //writing then number
-  delay(51);
+  delay(10);
   Wire.endTransmission();
 }
 
