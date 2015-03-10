@@ -50,6 +50,8 @@ void receiveEvent(int howMany){
     lcd.print("Temperature");
   } else if (SENSOR_READING == 'w'){
     lcd.print("Writing");
+  } else if (SENSOR_READING == 'r'){
+    lcd.print("Being Controlled");
   } else {
     lcd.print("Waiting");
   }
@@ -67,3 +69,5 @@ void receiveEvent(int howMany){
   }
   
 }
+
+
