@@ -1,3 +1,11 @@
+/*
+  Transmission delay is 51ms because the loop delay on slave is 50ms, so no matter what the transmission will be picked up by the slave(could definitely change this)
+  TURN_90_TIME needs to be updated when it gets new batteries
+  need to test IR functionality (that the ok key does stuff and doesnt screw up the basic functionality
+  be careful of using serial becaues the IR stuff interfaces wiht it in a way that i dont quite understand, so once you're done using it remove it fully from the code
+  will ocasionally start by doing a very small turn or go forward for a few seconds and then just stop as if nothing had happened, only to seemingly restart again as if nothing had happened
+*/
+
 #include "IRremote.h"
 #include "IRremoteInt.h"
 #include <Wire.h>
