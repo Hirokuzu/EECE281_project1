@@ -28,9 +28,9 @@ const int MAX_SPEED = 255;
 const int SLOW_SPEED = 90;
 const int MIN_SPEED = 80;
 const int STOP_SPEED = 0;
-const int SLOW_DIST = 40; //distance to start slowing` down is 40 cm
+const int SLOW_DIST = 10; //distance to start slowing` down is 10 cm
 const int STOP_DIST = 6; //distance to stop is 6 cm FOR NOW, (improve later)
-const int TURN_90_TIME = 400;
+const int TURN_90_TIME = 208;//-------------------------------------------------------------------------------------------------------------------------delay here
 const int TURN_SPEED = 145;
 
 /* LIGHT/BLINKER VARIABLES */
@@ -75,10 +75,6 @@ const uint16_t KEY_TV = 0xD827;
 /* DRAWING VARIABLES & CONSTANTS */
 const int SEGMENT_TIME= 1000;
 
-
-int first = 0; //DONT KNOW WHAT THIS ONE IS FOR
-
-
 void setup(){
   analogReference(INTERNAL); //change aRef to ~1.1V
   Serial.begin(9600);
@@ -100,28 +96,87 @@ void setup(){
   setMotorsForward();
   stopMotors();  
 }
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void loop(){  
-//    if ( in_basic_mode ){ // if in basic mode and button gets pressed...
        operate_in_basic_mode();
-//       if( ir_recv.decode(&keycode) ){   // listen for instruction from remote        
-//            in_basic_mode = false;
-//        }
-//        ir_recv.resume(); //receive next value
-//    }
-//  
-//    else if( ir_recv.decode(&keycode) ){
-//      key_pressed = (keycode.value & 0xFFFF);
-//      if (key_pressed == 0xFFFF){     //The remote will continue to spit out 0xFFFFFFFF if button is held down
-//        key_pressed = last_code;
-//      }else{
-//        last_code = key_pressed;
-//      }
-//      processInstruction( key_pressed);
-//      ir_recv.resume(); //receive next value
-//    }
 }
-        
+
+void turnLeft() {
+  Serial.print("turnLeft, ");
+  stopMotors();
+  digitalWrite(MOTOR_RIGHT_DIR, HIGH);
+  digitalWrite(MOTOR_LEFT_DIR, LOW);
+  delay(50);
+  //digitalWrite(LEFT_BLINKER, HIGH);
+  //blinkLeft();
+  setMotorSpeed(MAX_SPEED);
+  delay(TURN_90_TIME);
+  stopMotors();
+  setMotorsForward();
+}
+
+void stopMotors() {
+  Serial.print("stopMotors, ");
+  analogWrite(MOTOR_LEFT_PWM, 0); //adjust motor speed difference
+  analogWrite(MOTOR_RIGHT_PWM, 0); //start turning again 
+  delay(50);
+}
+
+void setMotorsForward() {   //Configure motor settings, doesnt actually drive
+  Serial.print("setMotorsForward, ");
+  digitalWrite(MOTOR_RIGHT_DIR, HIGH);
+  digitalWrite(MOTOR_LEFT_DIR, HIGH);
+  delay(50);
+}
+
+void setMotorSpeed(int pwm_speed){
+  Serial.print("setMotorSpeed, ");
+  analogWrite(MOTOR_LEFT_PWM, pwm_speed); //adjust motor speed difference
+  analogWrite(MOTOR_RIGHT_PWM, pwm_speed); //start turning again  
+  delay(50);
+  Serial.print("MS: ");
+  Serial.print(pwm_speed);
+}
+
+void turnRight() {
+  Serial.print("turnRight, ");
+  digitalWrite(MOTOR_RIGHT_DIR, LOW);
+  digitalWrite(MOTOR_LEFT_DIR, HIGH);
+  //digitalWrite(RIGHT_BLINKER, HIGH);
+  //blinkRight();
+  setMotorSpeed(MAX_SPEED);
+  delay(TURN_90_TIME);
+  stopMotors();
+  setMotorsForward();
+}
+
+void operate_in_basic_mode() {
+    float dist_read = getDistance();
+    Serial.print(" | D: ");
+    Serial.println(dist_read);
+    Serial.println();
+    // Now, process the distance appropriately:
+    if(dist_read > SLOW_DIST) {  // At STOP_DIST,(6cm), and turn left
+      setMotorSpeed(MAX_SPEED);
+    } else if(dist_read > STOP_DIST) { // Slow down to MIN_SPEED
+        slowDown(dist_read);
+    } else {
+        turnLeft();
+    }
+}
+
+void slowDown(float dist) {
+  float slowrate_f = ((dist-STOP_DIST)/(SLOW_DIST-STOP_DIST)) * 255;
+  int slowrate_i = (int)slowrate_f;  
+  
+  if(slowrate_i < MIN_SPEED)  //THE END OF THE BEEPING
+    slowrate_i = MIN_SPEED;
+
+  setMotorSpeed(slowrate_i);
+}
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 void processInstruction( uint16_t key){
     switch (key) {
       case KEY_1: drawOne(); break;
@@ -149,19 +204,7 @@ void processInstruction( uint16_t key){
     }
 }
 
-void operate_in_basic_mode() {
-    float dist_read = getDistance();
-    Serial.print(" | D: ");
-    Serial.println(dist_read);
-    // Now, process the distance appropriately:
-    if(dist_read > SLOW_DIST) {  // At STOP_DIST,(6cm), and turn left
-      setMotorSpeed(MAX_SPEED);
-    } else if(dist_read > STOP_DIST) { // Slow down to MIN_SPEED
-        slowDown(dist_read);
-    } else {
-        turnLeft();
-    }
-}
+
 
 float getDistance() {
   float echotime; //time of pulse in microseconds
@@ -272,62 +315,12 @@ float getDistance() {
 //  }
 //}
 
-void setMotorsForward() {   //Configure motor settings, doesnt actually drive
-  digitalWrite(MOTOR_RIGHT_DIR, HIGH);
-  digitalWrite(MOTOR_LEFT_DIR, HIGH);
-}
+
 
 void setMotorsBackward() {
   digitalWrite(MOTOR_LEFT_DIR, LOW);
   digitalWrite(MOTOR_RIGHT_DIR, LOW);
-  delay(100); //delay to make sure the correct direction is going to process
-}
-
-void setMotorSpeed(int pwm_speed){
-  analogWrite(MOTOR_LEFT_PWM, pwm_speed-2); //adjust motor speed difference
-  analogWrite(MOTOR_RIGHT_PWM, pwm_speed); //start turning again  
-  Serial.print("MS: ");
-  Serial.print(pwm_speed);
-}
-
-void stopMotors() {
-  analogWrite(MOTOR_LEFT_PWM, 0); //adjust motor speed difference
-  analogWrite(MOTOR_RIGHT_PWM, 0); //start turning again 
-  delay(50);
-}
-
-void turnLeft() {
-  stopMotors();
-  digitalWrite(MOTOR_RIGHT_DIR, HIGH);
-  digitalWrite(MOTOR_LEFT_DIR, LOW);
-  //digitalWrite(LEFT_BLINKER, HIGH);
-  //blinkLeft();
-  setMotorSpeed(MAX_SPEED);
-  delay(TURN_90_TIME);
-  stopMotors();
-  setMotorsForward();
-}
-
-void turnRight() {
-  digitalWrite(MOTOR_RIGHT_DIR, LOW);
-  digitalWrite(MOTOR_LEFT_DIR, HIGH);
-  //digitalWrite(RIGHT_BLINKER, HIGH);
-  //blinkRight();
-  setMotorSpeed(MAX_SPEED);
-  delay(TURN_90_TIME);
-  stopMotors();
-  setMotorsForward();
-}
-
-
-void slowDown(float dist) {
-  float slowrate_f = ((dist-STOP_DIST)/(SLOW_DIST-STOP_DIST)) * 255;
-  int slowrate_i = (int)slowrate_f;  
-  
-  if(slowrate_i < MIN_SPEED)  //THE END OF THE BEEPING
-    slowrate_i = MIN_SPEED;
-
-  setMotorSpeed(slowrate_i);
+  delay(50); //delay to make sure the correct direction is going to process
 }
 
 //void setHeadlights() {
