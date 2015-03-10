@@ -1,5 +1,6 @@
 #include "IRremote.h"
 #include "IRremoteInt.h"
+#include <Wire.h>
 
 /* PIN ASSIGNMENTS */
 const int ECHO = 2;
@@ -17,6 +18,8 @@ const int COMS_A = 4; //analog pins
 const int COMS_B = 5;
 const int TEMP = 0;
 
+char IS_BASIC = 1;
+
 /* DISTANCE(ULTRASONIC) VARIABLES */
 float dist_ahead;
 uint16_t key_pressed;
@@ -33,12 +36,6 @@ const int STOP_DIST = 5; //distance to stop is 6 cm FOR NOW, (improve later)
 const int TURN_90_TIME = 220;//-------------------------------------------------------------------------------------------------------------------------delay here
 const int TURN_SPEED = 145;
 
-/* LIGHT/BLINKER VARIABLES */
-unsigned long currentTime = 0;
-unsigned long prevTime = 0;
-const int LOW_LIGHT = 700;
-const int MED_LIGHT = 900;
-const int DAY_TIME_LIGHTS = 50;
 const int ON = HIGH;
 const int OFF = LOW;
 
@@ -83,6 +80,7 @@ void setup(){
   analogReference(INTERNAL); //change aRef to ~1.1V
   Serial.begin(9600);
   ir_recv.enableIRIn(); 
+  Wire.begin();
 
   pinMode(MOTOR_RIGHT_PWM, OUTPUT);
   pinMode(MOTOR_LEFT_PWM, OUTPUT);
@@ -101,12 +99,43 @@ void setup(){
   stopMotors();  
   delay(1000);
 }
-//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//------------------------------------------------------------SET-UP IS BEFORE THIS LINE-------------------------------------------------------------------------------------------------------------------
 
+/*
+  Main loop to repeat on the arduino
+*/
 void loop(){  
-       operate_in_basic_mode();
+  if(IS_BASIC){ //It's in basic mode 
+    operate_in_basic_mode(); //So it should do basic functionality that was tested
+    
+    if(ir_recv.decode(&keycode)){ //will scan for a key press 
+      uint16_t key = (keycode.value & 0xFFFF); // just following the stuff from before
+      
+      if(key == KEY_OK){ //should only do something if the OK key is pressed, otherwise just continue
+        if(IS_BASIC == 1){
+          IS_BASIC = 0;
+          stopMotors(); //stop what it's doing 
+          setMotorsForward(); //set motors forward then wait
+          transmitWait();
+        } else {
+          IS_BASIC = 1;
+          stopMotors(); //stop what it's doing 
+          setMotorsForward(); //set motors forward then wait
+          transmitWait();
+        }
+      }
+    }
+  } else {
+    //do extra shit
+    
+  }
+       
+
 }
 
+/*
+  Method to turn left by 90 degrees
+*/
 void turnLeft() {
   Serial.print("turnLeft, ");
   digitalWrite(LEFT_BLINKER, ON);
@@ -122,6 +151,9 @@ void turnLeft() {
   delay(100);
 }
 
+/*
+  Method to stop motors, doesnt change direction or anything, just makes them stop turning
+*/
 void stopMotors() {
   Serial.print("stopMotors, ");
   analogWrite(MOTOR_LEFT_PWM, 0); //adjust motor speed difference
@@ -129,6 +161,9 @@ void stopMotors() {
   delay(50);
 }
 
+/*
+  Method to set both motors to go the same way and forward (toward the ultrasonic sensor)
+*/
 void setMotorsForward() {   //Configure motor settings, doesnt actually drive
   Serial.print("setMotorsForward, ");
   digitalWrite(MOTOR_RIGHT_DIR, HIGH);
@@ -136,6 +171,10 @@ void setMotorsForward() {   //Configure motor settings, doesnt actually drive
   delay(50);
 }
 
+/*
+  Method to set both motors to go the same way and backwards (away from the ultrasonic sensor)
+  note that we have no detection of any sort while going backwards
+*/
 void setMotorsBackward() {
   Serial.print("setMotorsBackward, ");
   digitalWrite(MOTOR_LEFT_DIR, LOW);
@@ -143,6 +182,9 @@ void setMotorsBackward() {
   delay(50); //delay to make sure the correct direction is going to process
 }
 
+/*
+  Method that takes a pwm value for the speed (0-255) and sets the motors to go that speed (doesnt modify direction)
+*/
 void setMotorSpeed(int pwm_speed){
   Serial.print("setMotorSpeed, ");
   analogWrite(MOTOR_LEFT_PWM, pwm_speed-1); //adjust motor speed difference
@@ -152,6 +194,9 @@ void setMotorSpeed(int pwm_speed){
   Serial.print(pwm_speed);
 }
 
+/*
+  Method to turn right by 90 degrees
+*/
 void turnRight() {
   Serial.print("turnRight, ");
   digitalWrite(RIGHT_BLINKER, ON);
@@ -167,6 +212,12 @@ void turnRight() {
   delay(100);
 }
 
+/*
+  Main method for controling the robot while in default mode
+  Logic goes forward at max speed until approaching an object
+  will slow down once it hits 15cm away, then will stop at 5cm away
+  at that point it will turn 90 degrees left
+*/
 void operate_in_basic_mode() {
     float dist_read = getDistance();
     Serial.print(" | D: ");
@@ -182,6 +233,9 @@ void operate_in_basic_mode() {
     }
 }
 
+/*
+  Method invoked by basic mode which slows it down as a proportion of the distance left to travel
+*/
 void slowDown(float dist) {
   slowrate_f = ((dist-STOP_DIST)/(SLOW_DIST-STOP_DIST)) * 255;
   slowrate_i = (int)slowrate_f;  
@@ -192,6 +246,10 @@ void slowDown(float dist) {
   setMotorSpeed(slowrate_i);
 }
 
+/*
+  Method that gets the distance away from the ultrasonic sensor the thing in front of it
+  returns the value as a float
+*/
 float getDistance() {
   
   temperatureComp = analogRead(TEMP)/9.31;       //read temperature from IC sensor(in Celsius);
@@ -208,8 +266,96 @@ float getDistance() {
   echotimeComp = pulseIn(ECHO, HIGH); //waits for ECHO to go HIGH, starts timer, stops timer when ECHO goes LOW
   
   distanceComp = echotimeComp/speedSoundComp/2;
+  transmitDistance(distanceComp);
  
   return distanceComp;
+}
+
+/*
+  Method to concat the mode character and a string message for sending to the slave arduino
+  returns a const char* that can be integraded by using strcpy(String, char*) and then sending the resulting string to the slave
+*/
+const char* parseTransmission(char mode, String message){
+  int i;
+  char currentChar = 'a';
+  for( i = 0; currentChar != '\0' ; i++){
+    currentChar = message[i];
+  }//i is now the size of string
+  char parsed [i+1];
+  parsed[i] = '\0';
+  parsed[0] = mode;
+  for(int j = 1; j < i ; j++){
+    parsed[j] = message[j-1];
+  }
+  const char* resultS = parsed;
+  return resultS;
+}
+
+/*
+  method to parse an int value
+  returns a const char* that can be integraded by using strcpy(String, char*) and then sending the resulting string to the slave
+*/
+const char* parseNum(char mode, int value){
+  String valueString = String(value);
+  const char* resultN = parseTransmission(mode, valueString);
+  return resultN;
+}
+
+/*
+  method that transmit the signal to have the lcd print Waiting
+*/
+void transmitWait(){
+  Wire.beginTransmission(1);
+  Wire.write('a'); //writing being controlled
+  Wire.endTransmission();
+}
+
+/*
+  Method to transmit the signal to have the lcd print that it's being remote controlled
+*/
+void transmitRC(){
+  Wire.beginTransmission(1);
+  Wire.write('r'); //writing being controlled
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print the given distance
+*/
+void transmitDistance(int distance){
+  const char* constDisString = parseNum('d', distance);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constDisString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print the passed speed
+*/
+void transmitSpeed(int speedy){
+  const char* constPtrString = parseNum('s', speedy);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constPtrString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print that it's drawing a number as well as display the number being drawn
+*/
+void transmitDraw(int number){
+  const char* constStringPoint = parseNum('w', number);
+  char *ptrString;
+  String transString;
+  strcpy(ptrString, constStringPoint);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing then number
+  Wire.endTransmission();
 }
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -387,4 +533,3 @@ void drawZero() {
   forwardDraw();
   ;
 }
-    

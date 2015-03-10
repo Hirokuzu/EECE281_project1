@@ -1,5 +1,6 @@
 #include "IRremote.h"
 #include "IRremoteInt.h"
+#include <Wire.h>
 
 /* PIN ASSIGNMENTS */
 const int ECHO = 2;
@@ -17,6 +18,8 @@ const int COMS_A = 4; //analog pins
 const int COMS_B = 5;
 const int TEMP = 0;
 
+char IS_BASIC = 1; //1 is true, 0 is false
+
 /* DISTANCE(ULTRASONIC) VARIABLES */
 float dist_ahead;
 uint16_t key_pressed;
@@ -33,19 +36,11 @@ const int STOP_DIST = 5; //distance to stop is 6 cm FOR NOW, (improve later)
 const int TURN_90_TIME = 220;//-------------------------------------------------------------------------------------------------------------------------delay here
 const int TURN_SPEED = 145;
 
-/* LIGHT/BLINKER VARIABLES */
-unsigned long currentTime = 0;
-unsigned long prevTime = 0;
-const int LOW_LIGHT = 700;
-const int MED_LIGHT = 900;
-const int DAY_TIME_LIGHTS = 50;
-const int ON = HIGH;
-const int OFF = LOW;
-
 /* IR SENSOR VARIABLES & CONSTANTS */ 
 IRrecv ir_recv(IR_PIN); // Initialize the irrecv part of the IRremote  library 
 decode_results keycode; // Stores the IR received codes
 uint16_t last_code = 0; // Keeps track of the last code RX'd
+
 //KEY CODES
 const uint16_t KEY_1 = 0x20DF;
 const uint16_t KEY_2 = 0xA05F;
@@ -69,13 +64,6 @@ const uint16_t KEY_BLUE = 0x6897;
 const uint16_t KEY_AV = 0x807F;
 const uint16_t KEY_TV = 0xD827;
 
-  float echotimeComp; //time of pulse in microseconds
-  float temperatureComp; //temperature from IC sensor in degree Celsius
-  float speedSoundComp; //calculated speed of sound using temperature from IC sensor
-  float distanceComp; //distance in cm
-  float slowrate_f;
-  int slowrate_i;
-
 /* DRAWING VARIABLES & CONSTANTS */
 const int SEGMENT_TIME= 1000;
 
@@ -83,6 +71,7 @@ void setup(){
   analogReference(INTERNAL); //change aRef to ~1.1V
   Serial.begin(9600);
   ir_recv.enableIRIn(); 
+  Wire.begin();
 
   pinMode(MOTOR_RIGHT_PWM, OUTPUT);
   pinMode(MOTOR_LEFT_PWM, OUTPUT);
@@ -104,12 +93,14 @@ void setup(){
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 void loop(){  
-       operate_in_basic_mode();
+  operate_in_basic_mode();
 }
 
+/*
+  Method to turn left by 90 degrees
+*/
 void turnLeft() {
-  Serial.print("turnLeft, ");
-  digitalWrite(LEFT_BLINKER, ON);
+  digitalWrite(LEFT_BLINKER, HIGH);
   stopMotors();
   digitalWrite(MOTOR_RIGHT_DIR, HIGH);
   digitalWrite(MOTOR_LEFT_DIR, LOW);
@@ -118,43 +109,52 @@ void turnLeft() {
   delay(TURN_90_TIME);
   stopMotors();
   setMotorsForward();
-  digitalWrite(LEFT_BLINKER, ON);
+  digitalWrite(LEFT_BLINKER, HIGH);
   delay(100);
 }
 
+/*
+  Method to stop motors, doesnt change direction or anything, just makes them stop turning
+*/
 void stopMotors() {
-  Serial.print("stopMotors, ");
   analogWrite(MOTOR_LEFT_PWM, 0); //adjust motor speed difference
   analogWrite(MOTOR_RIGHT_PWM, 0); //start turning again 
   delay(50);
 }
 
+/*
+  Method to set both motors to go the same way and forward (toward the ultrasonic sensor)
+*/
 void setMotorsForward() {   //Configure motor settings, doesnt actually drive
-  Serial.print("setMotorsForward, ");
   digitalWrite(MOTOR_RIGHT_DIR, HIGH);
   digitalWrite(MOTOR_LEFT_DIR, HIGH);
   delay(50);
 }
 
+/*
+  Method to set both motors to go the same way and backwards (away from the ultrasonic sensor)
+  note that we have no detection of any sort while going backwards
+*/
 void setMotorsBackward() {
-  Serial.print("setMotorsBackward, ");
   digitalWrite(MOTOR_LEFT_DIR, LOW);
   digitalWrite(MOTOR_RIGHT_DIR, LOW);
   delay(50); //delay to make sure the correct direction is going to process
 }
 
+/*
+  Method that takes a pwm value for the speed (0-255) and sets the motors to go that speed (doesnt modify direction)
+*/
 void setMotorSpeed(int pwm_speed){
-  Serial.print("setMotorSpeed, ");
   analogWrite(MOTOR_LEFT_PWM, pwm_speed-1); //adjust motor speed difference
   analogWrite(MOTOR_RIGHT_PWM, pwm_speed); //start turning again  
   delay(50);
-  Serial.print("MS: ");
-  Serial.print(pwm_speed);
 }
 
+/*
+  Method to turn right by 90 degrees
+*/
 void turnRight() {
-  Serial.print("turnRight, ");
-  digitalWrite(RIGHT_BLINKER, ON);
+  digitalWrite(RIGHT_BLINKER, HIGH);
   stopMotors();
   digitalWrite(MOTOR_RIGHT_DIR, LOW);
   digitalWrite(MOTOR_LEFT_DIR, HIGH);
@@ -163,15 +163,18 @@ void turnRight() {
   delay(TURN_90_TIME);
   stopMotors();
   setMotorsForward();
-  digitalWrite(RIGHT_BLINKER, ON);
+  digitalWrite(RIGHT_BLINKER, HIGH);
   delay(100);
 }
 
+/*
+  Main method for controling the robot while in default mode
+  Logic goes forward at max speed until approaching an object
+  will slow down once it hits 15cm away, then will stop at 5cm away
+  at that point it will turn 90 degrees left
+*/
 void operate_in_basic_mode() {
     float dist_read = getDistance();
-    Serial.print(" | D: ");
-    Serial.println(dist_read);
-    Serial.println();
     // Now, process the distance appropriately:
     if(dist_read > SLOW_DIST) {  // At STOP_DIST,(6cm), and turn left
       setMotorSpeed(MAX_SPEED);
@@ -182,7 +185,13 @@ void operate_in_basic_mode() {
     }
 }
 
+/*
+  Method invoked by basic mode which slows it down as a proportion of the distance left to travel
+*/
 void slowDown(float dist) {
+  float slowrate_f;
+  int slowrate_i;
+  
   slowrate_f = ((dist-STOP_DIST)/(SLOW_DIST-STOP_DIST)) * 255;
   slowrate_i = (int)slowrate_f;  
   
@@ -192,7 +201,16 @@ void slowDown(float dist) {
   setMotorSpeed(slowrate_i);
 }
 
+/*
+  Method that gets the distance away from the ultrasonic sensor the thing in front of it
+  returns the value as a float
+*/
 float getDistance() {
+
+  float echotimeComp; //time of pulse in microseconds
+  float temperatureComp; //temperature from IC sensor in degree Celsius
+  float speedSoundComp; //calculated speed of sound using temperature from IC sensor
+  float distanceComp; //distance in cm
   
   temperatureComp = analogRead(TEMP)/9.31;       //read temperature from IC sensor(in Celsius);
   
@@ -211,36 +229,202 @@ float getDistance() {
  
   return distanceComp;
 }
-//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-void processInstruction( uint16_t key){
-    switch (key) {
-      case KEY_1: drawOne(); break;
-      case KEY_2: drawTwo(); break;
-      case KEY_3: drawThree(); break;
-      case KEY_4: drawFour(); break;
-      case KEY_5: drawFive(); break;
-      case KEY_6: drawSix(); break;
-      case KEY_7: drawSeven(); break;
-      case KEY_8: drawEight(); break;
-      case KEY_9: drawNine(); break;
-      case KEY_0: drawZero(); break;
-      case KEY_UP: setMotorsForward(); break; //set motors to go forward, doesnt move tho
-      case KEY_DOWN: setMotorsBackward(); break;
-      case KEY_RIGHT: turnRight(); break;
-      case KEY_LEFT: turnLeft(); break;
-      case KEY_OK: in_basic_mode = true; break;
-      case KEY_RED: stopMotors(); break;
-      case KEY_GREEN: setMotorSpeed(MAX_SPEED); break;
-      case KEY_YELLOW: setMotorSpeed(MIN_SPEED); break;
-      case KEY_BLUE: break;
-      case KEY_AV: break;
-      case KEY_TV: break;
-      default: break;
-    }
+/*
+  Method to concat the mode character and a string message for sending to the slave arduino
+  returns a const char* that can be integraded by using strcpy(String, char*) and then sending the resulting string to the slave
+*/
+const char* parseTransmission(char mode, String message){
+  int i;
+  char currentChar = 'a';
+  for( i = 0; currentChar != '\0' ; i++){
+    currentChar = message[i];
+  }//i is now the size of string
+  char parsed [i+1];
+  parsed[i] = '\0';
+  parsed[0] = mode;
+  for(int j = 1; j < i ; j++){
+    parsed[j] = message[j-1];
+  }
+  const char* resultS = parsed;
+  return resultS;
+}
+
+/*
+  method to parse an int value
+  returns a const char* that can be integraded by using strcpy(String, char*) and then sending the resulting string to the slave
+*/
+const char* parseNum(char mode, int value){
+  String valueString = String(value);
+  const char* resultN = parseTransmission(mode, valueString);
+  return resultN;
+}
+
+/*
+  method that transmit the signal to have the lcd print Waiting
+*/
+void transmitWait(){
+  Wire.beginTransmission(1);
+  Wire.write('a'); //writing being controlled
+  Wire.endTransmission();
+}
+
+/*
+  Method to transmit the signal to have the lcd print that it's being remote controlled
+*/
+void transmitRC(){
+  Wire.beginTransmission(1);
+  Wire.write('r'); //writing being controlled
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print the given distance
+*/
+void transmitDistance(int distance){
+  const char* constDisString = parseNum('d', distance);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constDisString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print the passed speed
+*/
+void transmitSpeed(int speedy){
+  const char* constPtrString = parseNum('s', speedy);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constPtrString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+
+/*
+  Method to have the LCD print that it's drawing a number as well as display the number being drawn
+*/
+void transmitDraw(int number){
+  const char* constStringPoint = parseNum('w', number);
+  char *ptrString;
+  String transString;
+  strcpy(ptrString, constStringPoint);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing then number
+  Wire.endTransmission();
 }
 
 
+void processInstruction( uint16_t key){ //-------------------------------------------------------------------------------I AM THROWING ERRORS
+    if( key == KEY_1) goto was1;
+    if( key == KEY_2) goto was2;
+    if( key == KEY_3) goto was3;
+    if( key == KEY_4) goto was4;
+    if( key == KEY_5) goto was5;
+    if( key == KEY_6) goto was6;
+    if( key == KEY_7) goto was7;
+    if( key == KEY_8) goto was8;
+    if( key == KEY_9) goto was9; 
+    if( key == KEY_0) goto was0;
+    if( key == KEY_UP) goto wasUp; 
+    if( key == KEY_DOWN) goto wasDown;
+    if( key == KEY_RIGHT) goto wasRight; 
+    if( key == KEY_LEFT) goto wasLeft; 
+    if( key == KEY_OK) goto wasOK;
+    if( key == KEY_RED) goto wasRed;
+    if( key == KEY_GREEN) goto wasGreen;
+    if( key == KEY_YELLOW) goto wasYellow;
+    if( key == KEY_BLUE) goto ending;
+    if( key == KEY_AV) goto ending;
+    if( key == KEY_TV) goto ending;
+    else goto ending;
+    
+    was1:
+        transmitDraw(1);
+        drawOne();
+        goto ending;
+    was2:
+        transmitDraw(2);
+        drawTwo();
+        goto ending;
+    was3:
+        transmitDraw(3);
+        drawThree();
+        goto ending;
+    was4:
+        transmitDraw(4);
+        drawFour();
+        goto ending;
+    was5:
+        transmitDraw(5);
+        drawFive();
+        goto ending;
+    was6:
+        transmitDraw(6);
+        drawSix();
+        goto ending;
+    was7:
+        transmitDraw(7);
+        drawSeven();
+        goto ending;
+    was8:
+        transmitDraw(8);
+        drawEight();
+        goto ending;
+    was9:
+        transmitDraw(9);
+        drawNine();
+        goto ending;
+    was0:
+        transmitDraw(0);
+        drawZero();
+        goto ending;
+    wasUp:
+        transmitRC(); 
+        setMotorsForward();
+        goto ending;
+    wasDown:
+        transmitRC(); 
+        setMotorsBackward();
+        goto ending;
+    wasRight:
+        transmitRC();
+        turnRight();
+        goto ending;
+    wasLeft:
+        transmitRC(); 
+        turnLeft();
+        goto ending;
+    wasOK:
+        if(IS_BASIC == 1){
+            IS_BASIC = 0;
+            stopMotors();
+            setMotorsForward();
+            goto ending;
+        } else {
+            IS_BASIC = 1;
+            stopMotors();
+            setMotorsForward();
+            goto ending;
+        }
+    wasRed:
+        transmitWait();
+        stopMotors();
+        goto ending;
+    wasGreen:
+        setMotorSpeed(MAX_SPEED);
+        goto ending;
+    wasYellow:
+        setMotorSpeed(MIN_SPEED);
+        goto ending;
+    ending:
+  transmitWait(); //after finishing will display that it's waiting
+}
+
+//--------------------------------------------------------------------------------------------Haven't tested anything below here
 void forwardDraw() {
   setMotorsForward();
   setMotorSpeed(MAX_SPEED);
@@ -255,7 +439,6 @@ void backwardDraw() {
   stopMotors();
   setMotorsForward();
 }
-
 
 void drawOne() {
   forwardDraw();
@@ -385,6 +568,5 @@ void drawZero() {
   forwardDraw();
   turnLeft();
   forwardDraw();
-  ;
+  stopMotors();
 }
-    
