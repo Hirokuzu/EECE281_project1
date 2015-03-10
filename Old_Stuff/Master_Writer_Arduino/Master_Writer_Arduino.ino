@@ -103,3 +103,30 @@ char* parseInt(char mode, int value){
  char* result = resultString;
  return result;
 }
+
+void transmitWait(){
+  Wire.beginTransmission(1);
+  Wire.write('a'); //writing being controlled
+  Wire.endTransmission();
+}
+
+void transmitRC(){
+  Wire.beginTransmission(1);
+  Wire.write('r'); //writing being controlled
+  Wire.endTransmission();
+}
+
+void transmitSpeed(int speedy){
+  char* ptrString = parseInt('s', speedy);
+  String transmitString = ptrString;
+  Wire.beginTransmission(1);
+  Wire.write("a"); //writing Speed then value
+  Wire.endTransmission();
+}
+void transmitDraw(String number){
+  char* stringPoint = parseTransmission('w', number);
+  String transmitString = stringPointl
+  Wire.beginTransmission(1);
+  Wire.write("a"); //writing 1
+  Wire.endTransmission();
+}

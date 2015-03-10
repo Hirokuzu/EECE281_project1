@@ -1,6 +1,3 @@
-#include <IRremote.h>
-#include <IRremoteInt.h>
-
 /*
  * IRremote
  * Version 0.11 August, 2009

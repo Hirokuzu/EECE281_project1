@@ -1,9 +1,11 @@
 #include "IRremote.h"
 #include "IRremoteInt.h"
+#include <string.h>
+#include <Wire.h>
 
+boolean in_basic_mode = false;
 /* PIN ASSIGNMENTS */
 const int TEMP = 0; //Analog pin
-const int PHOTOCELL = 2; //Analog pin
 const int ECHO = 2;
 const int TRIG = 3;
 const int MOTOR_RIGHT_DIR = 4;
@@ -33,12 +35,7 @@ const int TURN_SPEED = 145;
 /* LIGHT/BLINKER VARIABLES */
 unsigned long currentTime = 0;
 unsigned long prevTime = 0;
-int headlightOverride;
-int photocellValue;
 int count = 0;
-const int LOW_LIGHT = 700;
-const int MED_LIGHT = 900;
-const int DAY_TIME_LIGHTS = 50;
 const int ON = HIGH;
 const int OFF = LOW;
 
@@ -80,6 +77,9 @@ void setup(){
   
   analogReference(INTERNAL); //change aRef to ~1.1V
   Serial.begin(9600);
+  
+  Wire.begin();
+  
   
   // Start the receiver
   ir_recv.enableIRIn(); 
@@ -128,6 +128,7 @@ void loop(){
     
     switch (key) {
       case KEY_1:
+        transmitDraw(1);
         Serial.println("The button pressed is 1.");
         drawOne();
         break;
@@ -299,26 +300,7 @@ void slowDown(float dist) {
 }
 
 void setHeadlights() {
-    headlightOverride = 0;
-  
-  //HEADLIGHT Functionality
-  if(headlightOverride == 0){
-      photocellValue = analogRead(PHOTOCELL); //reads the light level
-      
-    if(photocellValue > MED_LIGHT){
-      analogWrite(HEADLIGHT, OFF);
-    } else if (photocellValue > LOW_LIGHT){
-      analogWrite(HEADLIGHT, DAY_TIME_LIGHTS);
-    } else {
-      analogWrite(HEADLIGHT, ON);
-    }
-    
-  } else if(headlightOverride == 1){ //over ride and on
-    analogWrite(HEADLIGHT, ON);
-  } else { //over ride and off
-    analogWrite(HEADLIGHT, OFF);
-  }
-  
+   analogWrite(HEADLIGHT, ON);
 }
 
 void blinkLeft() {
@@ -519,4 +501,71 @@ void drawZero() {
   turnLeft();
   forwardDraw();
   stopMotors();
+}
+
+//Jake added this ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+/*
+  Use this function to parse the mode and a message together
+*/
+const char* parseTransmission(char mode, String message){
+  int i;
+  char currentChar = 'a';
+  for( i = 0; currentChar != '\0' ; i++){
+    currentChar = message[i];
+  }//i is now the size of string
+  char parsed [i+1];
+  parsed[i] = '\0';
+  parsed[0] = mode;
+  for(int j = 1; j < i ; j++){
+    parsed[j] = message[j-1];
+  }
+  const char* resultS = parsed;
+  return resultS;
+}
+
+const char* parseNum(char mode, int value){
+ String valueString = String(value);
+ const char* resultN = parseTransmission(mode, valueString);
+ return resultN;
+}
+
+void transmitWait(){
+  Wire.beginTransmission(1);
+  Wire.write('a'); //writing being controlled
+  Wire.endTransmission();
+}
+
+void transmitRC(){
+  Wire.beginTransmission(1);
+  Wire.write('r'); //writing being controlled
+  Wire.endTransmission();
+}
+
+void transmitDistance(int distance){
+  const char* constDisString = parseNum('d', distance);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constDisString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+
+void transmitSpeed(int speedy){
+  const char* constPtrString = parseNum('s', speedy);
+  char* ptrString;
+  String transString;
+  strcpy(ptrString, constPtrString);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing Speed then value
+  Wire.endTransmission();
+}
+void transmitDraw(int number){
+  const char* constStringPoint = parseNum('w', number);
+  char *ptrString;
+  String transString;
+  strcpy(ptrString, constStringPoint);
+  Wire.beginTransmission(1);
+  Wire.write(ptrString); //writing then number
+  Wire.endTransmission();
 }
