@@ -33,7 +33,7 @@ const int MIN_SPEED = 80;
 const int STOP_SPEED = 0;
 const int SLOW_DIST = 15; //distance to start slowing` down is 10 cm
 const int STOP_DIST = 5; //distance to stop is 6 cm FOR NOW, (improve later)
-const int TURN_90_TIME = 220;//-------------------------------------------------------------------------------------------------------------------------delay here
+const int TURN_90_TIME = 210;//-------------------------------------------------------------------------------------------------------------------------delay here
 const int TURN_SPEED = 145;
 
 /* IR SENSOR VARIABLES & CONSTANTS */ 
@@ -150,7 +150,7 @@ void setMotorsBackward() {
   Method that takes a pwm value for the speed (0-255) and sets the motors to go that speed (doesnt modify direction)
 */
 void setMotorSpeed(int pwm_speed){
-  analogWrite(MOTOR_LEFT_PWM, pwm_speed-1); //adjust motor speed difference
+  analogWrite(MOTOR_LEFT_PWM, pwm_speed-2); //adjust motor speed difference
   analogWrite(MOTOR_RIGHT_PWM, pwm_speed); //start turning again  
   delay(50);
 }
